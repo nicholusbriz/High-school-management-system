@@ -1,0 +1,222 @@
+// Elite High School, Kampala Uganda - Management System
+// Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  roleId        Int
+  role          Role           @relation(fields: [roleId], references: [id])
+  firstName     String
+  lastName      String
+  email         String         @unique
+  password      String
+  phone         String?
+  address       String?
+  dateOfBirth   DateTime?
+  gender        String?
+  avatar        String?
+  isActive      Boolean        @default(true)
+  emailVerified DateTime?
+  rememberToken String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  student        Student?
+  children       Student[]     @relation("ParentStudent")
+  notifications  Notification[]
+  gradedGrades   Grade[]       @relation("GradedBy")
+  approvedGrades Grade[]       @relation("ApprovedBy")
+  taughtClasses  ClassModel[]   @relation("TeacherClasses")
+  markedAttendance Attendance[]
+  headOfDepartment Department[]
+
+  @@index([roleId])
+  @@index([email])
+}
+
+model Student {
+  id              Int          @id @default(autoincrement())
+  userId          Int          @unique
+  user            User         @relation(fields: [userId], references: [id])
+  studentId       String       @unique
+  gradeLevel      String
+  enrollmentDate  DateTime     @default(now())
+  parentId        Int?
+  parent          User?        @relation("ParentStudent", fields: [parentId], references: [id])
+  medicalInfo     String?
+  emergencyContact String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  enrollments     Enrollment[]
+  submissions     Submission[]
+}
+
+model Department {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  headId      Int?
+  head        User?    @relation(fields: [headId], references: [id])
+  courses     Course[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Course {
+  id           Int         @id @default(autoincrement())
+  code         String      @unique
+  name         String
+  description  String?
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  credits      Int         @default(1)
+  gradeLevel   String
+  classes      ClassModel[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([departmentId])
+}
+
+model ClassModel {
+  id           Int          @id @default(autoincrement())
+  courseId     Int
+  course       Course       @relation(fields: [courseId], references: [id])
+  teacherId    Int
+  teacher      User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  section      String
+  roomNumber   String?
+  schedule     String?
+  capacity     Int          @default(30)
+  academicYear String
+  semester     String
+  enrollments  Enrollment[]
+  assignments  Assignment[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([courseId])
+  @@index([teacherId])
+}
+
+model Enrollment {
+  id             Int          @id @default(autoincrement())
+  studentId      Int
+  student        Student      @relation(fields: [studentId], references: [id])
+  classId        Int
+  class          ClassModel   @relation(fields: [classId], references: [id])
+  enrollmentDate DateTime     @default(now())
+  status         String       @default("active")
+  grades         Grade[]
+  attendance     Attendance[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([studentId, classId])
+  @@index([studentId])
+  @@index([classId])
+}
+
+model Grade {
+  id          Int        @id @default(autoincrement())
+  enrollmentId Int
+  enrollment  Enrollment @relation(fields: [enrollmentId], references: [id])
+  gradeType   String
+  score       Float
+  maxScore    Float
+  comments    String?
+  gradedBy    Int
+  gradedByUser User       @relation("GradedBy", fields: [gradedBy], references: [id])
+  approvedBy  Int?
+  approvedByUser User?     @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  approvedAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([enrollmentId])
+  @@index([gradedBy])
+}
+
+model Assignment {
+  id             Int          @id @default(autoincrement())
+  classId        Int
+  class          ClassModel   @relation(fields: [classId], references: [id])
+  title          String
+  description    String?
+  dueDate        DateTime
+  maxScore       Float
+  attachmentPath String?
+  submissions    Submission[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([classId])
+}
+
+model Submission {
+  id           Int        @id @default(autoincrement())
+  assignmentId Int
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  studentId    Int
+  student      Student    @relation(fields: [studentId], references: [id])
+  content      String?
+  filePath     String?
+  submittedAt  DateTime   @default(now())
+  grade        Float?
+  feedback     String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+}
+
+model Attendance {
+  id           Int        @id @default(autoincrement())
+  enrollmentId Int
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id])
+  date         DateTime
+  status       String
+  notes        String?
+  markedBy     Int
+  markedByUser User       @relation(fields: [markedBy], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([enrollmentId, date])
+  @@index([enrollmentId])
+  @@index([date])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
